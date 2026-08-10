@@ -30,6 +30,15 @@ public class ReviewedPullRequest {
 
     private int overallScore; // 0-10
 
+    private String mergeRecommendation; // "Safe to Merge" | "Merge After Fixes" | "Do Not Merge"
+
+    private int confidence; // 0-100
+
+    private long reviewDurationMs;
+
+    /** The PR's head commit SHA - used to build permanent GitHub blob links (blob/{sha}/{file}#L{line}). */
+    private String headSha;
+
     private int filesChanged;
 
     private int totalAdditions;

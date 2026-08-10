@@ -5,14 +5,24 @@ import com.codeguard.repository.AppSettingsRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @Service
 public class AppSettingsService {
 
     private final AppSettingsRepository repository;
 
-    /** Fallback when no override has been saved via the UI - the original application.properties value. */
     @Value("${ai.provider:openai}")
     private String defaultProviderFromProperties;
+
+    @Value("${github.token:}")
+    private String defaultGithubTokenFromProperties;
+
+    @Value("${github.webhook-secret:}")
+    private String defaultWebhookSecretFromProperties;
 
     public AppSettingsService(AppSettingsRepository repository) {
         this.repository = repository;
@@ -26,18 +36,33 @@ public class AppSettingsService {
         return repository.save(settings);
     }
 
-    /** Resolves the active provider: UI override if set, otherwise application.properties. */
     public String resolveActiveProvider() {
-        AppSettings settings = getSettings();
-        String override = settings.getActiveAiProviderOverride();
-        if (override != null && !override.isBlank()) {
-            return override.toLowerCase().trim();
-        }
-        return defaultProviderFromProperties.toLowerCase().trim();
+        String override = getSettings().getActiveAiProviderOverride();
+        return (override != null && !override.isBlank()) ? override.toLowerCase().trim() : defaultProviderFromProperties.toLowerCase().trim();
     }
 
     public String resolveCustomInstructions() {
-        String instructions = getSettings().getCustomInstructions();
-        return instructions == null ? "" : instructions.trim();
+        String v = getSettings().getCustomInstructions();
+        return v == null ? "" : v.trim();
+    }
+
+    public String resolveGithubToken() {
+        String override = getSettings().getGithubTokenOverride();
+        return (override != null && !override.isBlank()) ? override.trim() : defaultGithubTokenFromProperties;
+    }
+
+    public String resolveWebhookSecret() {
+        String override = getSettings().getWebhookSecretOverride();
+        return (override != null && !override.isBlank()) ? override.trim() : defaultWebhookSecretFromProperties;
+    }
+
+    /** Empty set means "no restriction" - every repo is allowed. */
+    public Set<String> resolveAllowedRepos() {
+        String raw = getSettings().getAllowedRepos();
+        if (raw == null || raw.isBlank()) return Set.of();
+        return Arrays.stream(raw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
     }
 }

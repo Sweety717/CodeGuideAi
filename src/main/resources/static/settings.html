@@ -7,30 +7,45 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <div class="page">
-        <button type="button" id="dark-toggle" class="dark-toggle" title="Toggle dark mode">&#9789;</button>
+<div class="page">
+    <button type="button" id="dark-toggle" class="dark-toggle" title="Toggle dark mode">&#9789;</button>
 
-        <header class="hero">
-            <h1>Settings</h1>
-            <p><a href="/index.html" class="back-link">&larr; Back to dashboard</a></p>
-        </header>
+    <header class="hero">
+        <h1>Settings</h1>
+        <p><a href="/index.html" class="back-link">&larr; Back to dashboard</a></p>
+    </header>
 
-        <div id="error-box" class="error-box hidden"></div>
-        <div id="saved-box" class="info-msg hidden">Settings saved.</div>
+    <div id="error-box" class="error-box hidden"></div>
+    <div id="saved-box" class="info-msg hidden">Settings saved.</div>
 
-        <form id="settings-form" class="report-card">
-            <h2>AI Provider</h2>
-            <p class="field-hint">Overrides ai.provider from application.properties without needing a restart. Leave on "Use default" to keep whatever's configured in the properties file.</p>
-            <select id="provider-select"></select>
+    <form id="settings-form" class="report-card">
+        <h2>AI Provider</h2>
+        <p class="field-hint">Overrides ai.provider from application.properties without needing a restart. Leave on "Use default" to keep whatever's configured in the properties file.</p>
+        <select id="provider-select"></select>
 
-            <h2 class="section-spacer">Custom Review Instructions</h2>
-            <p class="field-hint">Appended to every review prompt - use this to encode your team's own standards (e.g. "Flag any use of System.out.println instead of the logger", "We use Lombok, don't flag missing getters/setters"). Leave blank to use only the built-in review criteria.</p>
-            <textarea id="instructions-input" rows="8" placeholder="e.g. Our team requires all public methods to have Javadoc. Flag any new endpoint that doesn't validate input with @Valid. We don't use checked exceptions - flag any new 'throws Exception' on a public method."></textarea>
+        <h2 class="section-spacer">Custom Review Instructions</h2>
+        <p class="field-hint">Appended to every review prompt - use this to encode your team's own standards (e.g. "Flag any use of System.out.println instead of the logger", "We use Lombok, don't flag missing getters/setters"). Leave blank to use only the built-in review criteria.</p>
+        <textarea id="instructions-input" rows="8" placeholder="e.g. Our team requires all public methods to have Javadoc. Flag any new endpoint that doesn't validate input with @Valid. We don't use checked exceptions - flag any new 'throws Exception' on a public method."></textarea>
 
-            <button type="submit" id="submit-btn" class="primary-btn settings-save-btn">Save Settings</button>
-        </form>
-    </div>
+        <h2 class="section-spacer">GitHub</h2>
+        <p class="field-hint">Currently active token: <code id="token-mask">&hellip;</code>. Leave a field blank to keep its current value unchanged.</p>
+        <label class="settings-label">Personal Access Token</label>
+        <input type="password" id="github-token-input" placeholder="ghp_... (leave blank to keep current)">
+        <label class="settings-label">Webhook Secret</label>
+        <input type="password" id="webhook-secret-input" placeholder="leave blank to keep current">
+        <label class="settings-label">Repository Allowlist <span class="optional-tag">(optional)</span></label>
+        <textarea id="allowed-repos-input" rows="3" placeholder="owner/repo-one, owner/repo-two (comma-separated). Leave blank to review any repo the webhook is sent for."></textarea>
 
-    <script src="/js/settings.js"></script>
+        <button type="submit" id="submit-btn" class="primary-btn settings-save-btn">Save Settings</button>
+
+        <div class="security-note">
+            &#9888; This settings page has no login. If you deploy this somewhere reachable from the
+            internet, put it behind a reverse-proxy with basic auth or a VPN - anyone who can load
+            this page can see the masked token hint and change your review configuration.
+        </div>
+    </form>
+</div>
+
+<script src="/js/settings.js"></script>
 </body>
 </html>

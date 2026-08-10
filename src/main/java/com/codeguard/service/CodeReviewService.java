@@ -69,6 +69,8 @@ public class CodeReviewService {
                 {
                   "overallScore": <integer 0-10, overall code quality of this PR - 10 is excellent>,
                   "riskLevel": <one of: "Low", "Medium", "High", "Critical">,
+                  "mergeRecommendation": <one of: "Safe to Merge", "Merge After Fixes", "Do Not Merge" - base this on whether any Critical/High findings exist, not just the score>,
+                  "confidence": <integer 0-100, how confident you are in this assessment given the diff context available - lower this if the diff is small/truncated or context is missing>,
                   "overallSummary": "<2-4 sentence summary of what this PR does and your overall assessment>",
                   "findings": [
                     {
@@ -77,6 +79,7 @@ public class CodeReviewService {
                       "category": <one of: "Bug", "Security", "Performance", "Style", "Best Practice">,
                       "title": "<short issue name, e.g. 'Potential SQL Injection' or 'Missing null check'>",
                       "lineHint": "<approximate location in words, e.g. 'in the new validateInput() method' - diff line numbers shift, describe location, don't just give a number>",
+                      "lineNumber": <best-effort actual line number in the NEW version of the file, computed from the diff's @@ -a,b +c,d @@ hunk header plus counting lines within that hunk. 0 if you cannot determine it confidently - do not guess wildly>,
                       "comment": "<what the issue is and why it matters>",
                       "suggestion": "<a concrete fix or improvement>",
                       "codeSnippet": "<a short (1-5 line) excerpt from the diff that shows the issue - exact code, not paraphrased. Empty string if not applicable.>"
@@ -140,6 +143,8 @@ public class CodeReviewService {
 
             int overallScore = clamp(root.path("overallScore").asInt(5), 0, 10);
             String riskLevel = root.path("riskLevel").asText("Medium");
+            String mergeRecommendation = root.path("mergeRecommendation").asText(deriveMergeRecommendation(riskLevel));
+            int confidence = clamp(root.path("confidence").asInt(75), 0, 100);
             String overallSummary = root.path("overallSummary").asText("");
 
             List<Finding> findings = new ArrayList<>();
@@ -150,6 +155,7 @@ public class CodeReviewService {
                         n.path("category").asText("Best Practice"),
                         n.path("title").asText(""),
                         n.path("lineHint").asText(""),
+                        n.path("lineNumber").asInt(0),
                         n.path("comment").asText(""),
                         n.path("suggestion").asText(""),
                         n.path("codeSnippet").asText("")));
@@ -158,11 +164,19 @@ public class CodeReviewService {
             List<String> positives = new ArrayList<>();
             root.path("positives").forEach(n -> positives.add(n.asText()));
 
-            return new ReviewResult(overallScore, riskLevel, overallSummary, findings, positives);
+            return new ReviewResult(overallScore, riskLevel, mergeRecommendation, confidence, overallSummary, findings, positives);
         } catch (Exception ex) {
             log.error("Failed to parse AI review response as JSON: {}", content, ex);
             throw new IllegalStateException("The AI returned an unexpected response format. Please try again.", ex);
         }
+    }
+
+    /** Fallback if the model omits mergeRecommendation - keeps the field always populated. */
+    private String deriveMergeRecommendation(String riskLevel) {
+        String r = riskLevel == null ? "" : riskLevel.toLowerCase();
+        if (r.equals("critical")) return "Do Not Merge";
+        if (r.equals("high")) return "Merge After Fixes";
+        return "Safe to Merge";
     }
 
     private int clamp(int value, int min, int max) {

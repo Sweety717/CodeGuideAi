@@ -36,4 +36,20 @@ public class AppSettings {
     @Lob
     @Column(length = 8000)
     private String customInstructions;
+
+    /** Overrides github.token from application.properties when set. Editable from Settings so it doesn't require a restart to rotate. */
+    private String githubTokenOverride;
+
+    /** Overrides github.webhook-secret from application.properties when set. */
+    private String webhookSecretOverride;
+
+    /**
+     * Comma-separated "owner/repo" allowlist. When non-blank, the webhook
+     * handler ignores PR events from any repo not in this list - lets a
+     * buyer point one deployment's webhook at an org without reviewing
+     * every repo in it. Blank means "review anything the webhook is sent for".
+     */
+    @Lob
+    @Column(length = 4000)
+    private String allowedRepos;
 }
