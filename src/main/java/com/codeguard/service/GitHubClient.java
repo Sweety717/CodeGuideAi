@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -23,11 +22,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Thin wrapper around the GitHub REST API (v2022-11-28). Uses a single
- * personal access token configured by the buyer - fine for a self-hosted,
- * single-team tool. A GitHub App with per-installation tokens would be the
- * natural upgrade if this ever needs to support multiple orgs from one
- * deployment.
+ * Thin wrapper around the GitHub REST API (v2022-11-28). Token and webhook
+ * secret are resolved fresh on every call via AppSettingsService, so a
+ * Settings-page change takes effect immediately without a restart.
  */
 @Service
 public class GitHubClient {
@@ -35,25 +32,23 @@ public class GitHubClient {
     private static final Logger log = LoggerFactory.getLogger(GitHubClient.class);
     private static final String API_BASE = "https://api.github.com";
 
-    private final String token;
-    private final String webhookSecret;
+    private final AppSettingsService settingsService;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public GitHubClient(@Value("${github.token:}") String token,
-                         @Value("${github.webhook-secret:}") String webhookSecret) {
-        this.token = token;
-        this.webhookSecret = webhookSecret;
+    public GitHubClient(AppSettingsService settingsService) {
+        this.settingsService = settingsService;
     }
 
     public boolean isConfigured() {
+        String token = settingsService.resolveGithubToken();
         return token != null && !token.isBlank();
     }
 
-    /** Verifies GitHub's HMAC-SHA256 webhook signature against the raw request body. */
     public boolean isValidSignature(String rawBody, String signatureHeader) {
+        String webhookSecret = settingsService.resolveWebhookSecret();
         if (webhookSecret == null || webhookSecret.isBlank()) {
-            log.warn("github.webhook-secret is not set - rejecting webhook (configure it in application.properties).");
+            log.warn("No webhook secret configured (application.properties or Settings) - rejecting webhook.");
             return false;
         }
         if (signatureHeader == null || !signatureHeader.startsWith("sha256=")) {
@@ -75,14 +70,12 @@ public class GitHubClient {
 
     public JsonNode getPullRequest(String repoFullName, int prNumber) {
         String url = API_BASE + "/repos/" + repoFullName + "/pulls/" + prNumber;
-        String raw = exchange(url, HttpMethod.GET, null);
-        return parse(raw);
+        return parse(exchange(url, HttpMethod.GET, null));
     }
 
     public List<PullRequestFile> getPullRequestFiles(String repoFullName, int prNumber) {
         String url = API_BASE + "/repos/" + repoFullName + "/pulls/" + prNumber + "/files?per_page=100";
-        String raw = exchange(url, HttpMethod.GET, null);
-        JsonNode root = parse(raw);
+        JsonNode root = parse(exchange(url, HttpMethod.GET, null));
 
         List<PullRequestFile> files = new ArrayList<>();
         for (JsonNode n : root) {
@@ -91,8 +84,7 @@ public class GitHubClient {
                     n.path("status").asText(""),
                     n.path("additions").asInt(0),
                     n.path("deletions").asInt(0),
-                    n.path("patch").asText("")) // binary files / very large diffs have no "patch" field
-            );
+                    n.path("patch").asText("")));
         }
         return files;
     }
@@ -103,8 +95,9 @@ public class GitHubClient {
     }
 
     private String exchange(String url, HttpMethod method, Object body) {
-        if (!isConfigured()) {
-            throw new IllegalStateException("github.token is not set in application.properties.");
+        String token = settingsService.resolveGithubToken();
+        if (token == null || token.isBlank()) {
+            throw new IllegalStateException("No GitHub token configured - set github.token in application.properties or add one in Settings.");
         }
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

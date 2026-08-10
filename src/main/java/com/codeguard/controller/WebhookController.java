@@ -70,6 +70,11 @@ public class WebhookController {
             return ResponseEntity.badRequest().body("Missing repository or PR number");
         }
 
+        if (!orchestrationService.isRepoAllowed(repoFullName)) {
+            log.info("Ignoring PR event for {} - not in the Settings allowlist.", repoFullName);
+            return ResponseEntity.ok("Repo not in allowlist, skipped");
+        }
+
         log.info("Queuing AI review for {}#{}", repoFullName, prNumber);
         orchestrationService.reviewAsync(repoFullName, prNumber, true);
 

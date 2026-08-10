@@ -60,7 +60,7 @@ public class ReviewApiController {
         ReviewedPullRequest review = reviewOpt.get();
         try {
             ReviewResult result = objectMapper.readValue(review.getFindingsJson(), ReviewResult.class);
-            String markdown = orchestrationService.formatMarkdownComment(result);
+            String markdown = orchestrationService.formatMarkdownComment(result, review.getRepoFullName(), review.getHeadSha());
 
             String filename = (review.getRepoFullName().replace("/", "_") + "_PR" + review.getPrNumber() + ".md");
             return ResponseEntity.ok()

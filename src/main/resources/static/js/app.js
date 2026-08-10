@@ -107,6 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var el = document.getElementById('latest-review');
         el.innerHTML =
             '<div class="report-card latest-card" data-review-id="latest">' +
+                verdictBanner(r.mergeRecommendation) +
                 '<div class="latest-meta-row">' +
                     '<div class="meta-item"><span class="meta-label">Repository</span><span class="meta-value">' + escapeHtml(r.repoFullName) + '</span></div>' +
                     '<div class="meta-item"><span class="meta-label">PR</span><span class="meta-value">#' + r.prNumber + '</span></div>' +
@@ -118,8 +119,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 '<div class="score-summary-grid">' +
                     '<div class="score-tile"><span class="score-tile-value">' + r.overallScore + '/10</span><span class="score-tile-label">Overall Score</span></div>' +
-                    '<div class="score-tile"><span class="score-tile-value risk-text-' + riskClass(r.riskLevel) + '">' + escapeHtml(r.riskLevel) + '</span><span class="score-tile-label">Risk</span></div>' +
-                    '<div class="score-tile"><span class="score-tile-value">' + r.filesChanged + '</span><span class="score-tile-label">Files Reviewed</span></div>' +
+                    '<div class="score-tile"><span class="score-tile-value">' + r.confidence + '%</span><span class="score-tile-label">AI Confidence</span></div>' +
+                    '<div class="score-tile"><span class="score-tile-value">' + formatDuration(r.reviewDurationMs) + '</span><span class="score-tile-label">Completed In</span></div>' +
                     '<div class="score-tile"><span class="score-tile-value critical-text">' + critical + '</span><span class="score-tile-label">Critical Issues</span></div>' +
                     '<div class="score-tile"><span class="score-tile-value">' + suggestions + '</span><span class="score-tile-label">Suggestions</span></div>' +
                 '</div>' +
@@ -130,15 +131,56 @@ document.addEventListener('DOMContentLoaded', function () {
                     '<a href="/api/reviews/' + r.id + '/markdown" class="ghost-btn">Download Markdown</a>' +
                     '<button type="button" class="ghost-btn print-pdf-btn" data-target="latest">Download PDF</button>' +
                 '</div>' +
+                buildFilterBar('latest') +
                 '<div class="findings-list" id="latest-findings"></div>' +
             '</div>';
 
         var container = document.getElementById('latest-findings');
-        findings.forEach(function (f) { container.appendChild(buildFindingCard(f)); });
+        findings.forEach(function (f) { container.appendChild(buildFindingCard(f, r.repoFullName, r.headSha)); });
 
         bindPrintButtons(el);
+        bindFilterBar(el, container);
         el.classList.remove('hidden');
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function verdictBanner(recommendation) {
+        var cls = 'verdict-safe', icon = '\u2705';
+        if (recommendation === 'Do Not Merge') { cls = 'verdict-danger'; icon = '\u274C'; }
+        else if (recommendation === 'Merge After Fixes') { cls = 'verdict-warn'; icon = '\u26A0\uFE0F'; }
+        return '<div class="verdict-banner ' + cls + '">' + icon + ' ' + escapeHtml((recommendation || 'Safe to Merge').toUpperCase()) + '</div>';
+    }
+
+    function formatDuration(ms) {
+        if (!ms) return '\u2014';
+        return (ms / 1000).toFixed(1) + 's';
+    }
+
+    // ---- Findings filter bar (severity + category combined, matches the ask) ----
+    var FILTER_CHIPS = ['All', 'Critical', 'High', 'Medium', 'Low', 'Security', 'Performance', 'Best Practice'];
+
+    function buildFilterBar(scopeId) {
+        var chips = FILTER_CHIPS.map(function (label, i) {
+            return '<button type="button" class="filter-chip' + (i === 0 ? ' active' : '') + '" data-filter="' + label + '" data-scope="' + scopeId + '">' + label + '</button>';
+        }).join('');
+        return '<div class="filter-bar">' + chips + '</div>';
+    }
+
+    function bindFilterBar(scopeEl, findingsContainer) {
+        var chips = scopeEl.querySelectorAll('.filter-chip');
+        chips.forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                chips.forEach(function (c) { c.classList.remove('active'); });
+                chip.classList.add('active');
+                var filter = chip.getAttribute('data-filter');
+                findingsContainer.querySelectorAll('.finding-block').forEach(function (block) {
+                    var sev = block.getAttribute('data-severity');
+                    var cat = block.getAttribute('data-category');
+                    var match = filter === 'All' || sev === filter || cat === filter;
+                    block.classList.toggle('hidden', !match);
+                });
+            });
+        });
     }
 
     // ---- History list ----
@@ -187,11 +229,11 @@ document.addEventListener('DOMContentLoaded', function () {
             card.innerHTML =
                 '<div class="review-head">' +
                     '<div>' +
-                        '<span class="risk-badge risk-' + riskClass(r.riskLevel) + '">' + escapeHtml(r.riskLevel) + '</span>' +
+                        verdictChip(r.mergeRecommendation) +
                         '<span class="score-chip">' + r.overallScore + '/10</span>' +
                         '<a href="' + escapeHtml(r.prUrl) + '" target="_blank" class="review-title">' + escapeHtml(r.repoFullName) + ' #' + r.prNumber + ' &mdash; ' + escapeHtml(r.prTitle) + '</a>' +
                     '</div>' +
-                    '<span class="review-meta">' + r.filesChanged + ' files &middot; <span class="lines-add">+' + r.totalAdditions + '</span>/<span class="lines-del">-' + r.totalDeletions + '</span> &middot; ' + formatDate(r.createdAt) +
+                    '<span class="review-meta">' + r.filesChanged + ' files &middot; <span class="lines-add">+' + r.totalAdditions + '</span>/<span class="lines-del">-' + r.totalDeletions + '</span> &middot; ' + formatDuration(r.reviewDurationMs) + ' &middot; ' + formatDate(r.createdAt) +
                         (r.commentPosted ? ' &middot; <span class="posted-tag">Posted</span>' : '') + '</span>' +
                 '</div>' +
                 '<p class="review-summary">' + escapeHtml(r.overallSummary) + '</p>' +
@@ -200,10 +242,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     '<a href="/api/reviews/' + r.id + '/markdown" class="ghost-btn">Download Markdown</a>' +
                     '<button type="button" class="ghost-btn print-pdf-btn" data-target="' + r.id + '">Download PDF</button>' +
                 '</div>' +
+                buildFilterBar(String(r.id)) +
                 '<div class="findings-list hidden"></div>';
 
             var findingsContainer = card.querySelector('.findings-list');
-            findings.forEach(function (f) { findingsContainer.appendChild(buildFindingCard(f)); });
+            findings.forEach(function (f) { findingsContainer.appendChild(buildFindingCard(f, r.repoFullName, r.headSha)); });
+            bindFilterBar(card, findingsContainer);
 
             card.querySelector('.toggle-findings-btn').addEventListener('click', function () {
                 findingsContainer.classList.toggle('hidden');
@@ -275,20 +319,58 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ---- Shared premium finding card ----
-    function buildFindingCard(f) {
+    function buildFindingCard(f, repoFullName, headSha) {
         var block = document.createElement('div');
         block.className = 'finding-block';
+        block.setAttribute('data-severity', f.severity);
+        block.setAttribute('data-category', f.category);
+
+        var fileDisplay = escapeHtml(f.file) + (f.lineNumber > 0 ? ':' + f.lineNumber : '');
+        var fileHtml;
+        if (f.lineNumber > 0 && repoFullName && headSha) {
+            var link = 'https://github.com/' + repoFullName + '/blob/' + headSha + '/' + f.file + '#L' + f.lineNumber;
+            fileHtml = '<a href="' + link + '" target="_blank" class="finding-file">' + fileDisplay + ' &#8599;</a>';
+        } else {
+            fileHtml = '<code class="finding-file finding-file-plain">' + fileDisplay + '</code>';
+        }
+
         block.innerHTML =
             '<div class="finding-top">' +
                 '<span class="severity-badge severity-' + riskClass(f.severity) + '">' + severityEmoji(f.severity) + ' ' + escapeHtml(f.severity) + '</span>' +
-                '<code class="finding-file">' + escapeHtml(f.file) + '</code>' +
+                '<span class="category-badge">' + categoryIcon(f.category) + ' ' + escapeHtml(f.category) + '</span>' +
             '</div>' +
+            fileHtml +
             (f.title ? '<p class="finding-title">' + escapeHtml(f.title) + '</p>' : '') +
-            (f.lineHint ? '<span class="finding-hint">' + escapeHtml(f.lineHint) + '</span>' : '') +
+            (!f.lineNumber && f.lineHint ? '<span class="finding-hint">' + escapeHtml(f.lineHint) + '</span>' : '') +
             '<p class="finding-comment">' + escapeHtml(f.comment) + '</p>' +
-            (f.codeSnippet ? '<pre class="finding-code">' + escapeHtml(f.codeSnippet) + '</pre>' : '') +
-            (f.suggestion ? '<p class="finding-suggestion"><strong>Suggested fix:</strong> ' + escapeHtml(f.suggestion) + '</p>' : '');
+            (f.codeSnippet ? codeBlockHtml(f.codeSnippet) : '') +
+            (f.suggestion ? suggestionHtml(f.suggestion) : '');
+
+        bindCopyButtons(block);
         return block;
+    }
+
+    function codeBlockHtml(snippet) {
+        return '<div class="code-wrap"><button type="button" class="copy-btn" data-copy-text="' + escapeAttr(snippet) + '">&#128203; Copy</button>' +
+            '<pre class="finding-code">' + escapeHtml(snippet) + '</pre></div>';
+    }
+
+    function suggestionHtml(suggestion) {
+        return '<div class="suggestion-wrap"><button type="button" class="copy-btn copy-btn-suggestion" data-copy-text="' + escapeAttr(suggestion) + '">&#128203; Copy</button>' +
+            '<p class="finding-suggestion"><strong>Suggested fix:</strong> ' + escapeHtml(suggestion) + '</p></div>';
+    }
+
+    function bindCopyButtons(scope) {
+        scope.querySelectorAll('.copy-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var text = btn.getAttribute('data-copy-text');
+                navigator.clipboard.writeText(text).then(function () {
+                    var original = btn.textContent;
+                    btn.textContent = '\u2714 Copied';
+                    setTimeout(function () { btn.textContent = original; }, 1300);
+                });
+            });
+        });
     }
 
     function severityEmoji(s) {
@@ -296,8 +378,24 @@ document.addEventListener('DOMContentLoaded', function () {
         return map[s] || '\u26AA';
     }
 
+    function categoryIcon(c) {
+        var map = { Bug: '\uD83D\uDC1E', Security: '\uD83D\uDEE1\uFE0F', Performance: '\u26A1', Style: '\uD83C\uDFA8', 'Best Practice': '\uD83E\uDDF9' };
+        return map[c] || '\u2022';
+    }
+
+    function escapeAttr(text) {
+        return (text || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
     function safeFindings(r) {
         try { return JSON.parse(r.findingsJson).findings || []; } catch (e) { return []; }
+    }
+
+    function verdictChip(recommendation) {
+        var cls = 'verdict-safe', icon = '\u2705';
+        if (recommendation === 'Do Not Merge') { cls = 'verdict-danger'; icon = '\u274C'; }
+        else if (recommendation === 'Merge After Fixes') { cls = 'verdict-warn'; icon = '\u26A0\uFE0F'; }
+        return '<span class="verdict-chip ' + cls + '">' + icon + ' ' + escapeHtml(recommendation || 'Safe to Merge') + '</span>';
     }
 
     function riskClass(level) {
