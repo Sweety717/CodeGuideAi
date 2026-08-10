@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — CodeGuard AI</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="page">
+        <button type="button" id="dark-toggle" class="dark-toggle" title="Toggle dark mode">&#9789;</button>
+
+        <header class="hero">
+            <h1>Settings</h1>
+            <p><a href="/index.html" class="back-link">&larr; Back to dashboard</a></p>
+        </header>
+
+        <div id="error-box" class="error-box hidden"></div>
+        <div id="saved-box" class="info-msg hidden">Settings saved.</div>
+
+        <form id="settings-form" class="report-card">
+            <h2>AI Provider</h2>
+            <p class="field-hint">Overrides ai.provider from application.properties without needing a restart. Leave on "Use default" to keep whatever's configured in the properties file.</p>
+            <select id="provider-select"></select>
+
+            <h2 class="section-spacer">Custom Review Instructions</h2>
+            <p class="field-hint">Appended to every review prompt - use this to encode your team's own standards (e.g. "Flag any use of System.out.println instead of the logger", "We use Lombok, don't flag missing getters/setters"). Leave blank to use only the built-in review criteria.</p>
+            <textarea id="instructions-input" rows="8" placeholder="e.g. Our team requires all public methods to have Javadoc. Flag any new endpoint that doesn't validate input with @Valid. We don't use checked exceptions - flag any new 'throws Exception' on a public method."></textarea>
+
+            <button type="submit" id="submit-btn" class="primary-btn settings-save-btn">Save Settings</button>
+        </form>
+    </div>
+
+    <script src="/js/settings.js"></script>
+</body>
+</html>
