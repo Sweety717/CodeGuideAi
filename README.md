@@ -5,16 +5,21 @@ vanilla JS dashboard, your own OpenAI/Gemini/Ollama key. Every PR gets an
 AI-generated review comment covering bugs, security issues, performance
 problems, and best-practice violations - automatically, on every push.
 
+![CodeGuard AI dashboard showing a completed review with score, risk level, and issue counts](dashboard-results.png)
+
 ## What's included
 
 - GitHub webhook receiver — reviews every PR automatically on open/update
 - AI review: risk level, findings by file with severity + category +
   suggested fix, plus a short "what's good" note
+  ![Example finding: CSRF disabled on session-cookie auth, with code snippet and suggested fix](finding-example.png)
 - Posts the review as a formatted comment directly on the PR
 - Manual review endpoint/dashboard button — test the whole pipeline on any
   PR without needing a live webhook first
+![CodeGuard AI running a manual review against a real 67-file GitHub PR](test-pr-example.png)
 - Review history dashboard — every past review, searchable by nothing yet
   (small tool, small dashboard), expandable findings per review
+  ![Review trends chart tracking quality score and issues found over time](review-trends.png)
 - Multi-provider AI: OpenAI, Google Gemini, or a local Ollama instance —
   swap with one config line
 
