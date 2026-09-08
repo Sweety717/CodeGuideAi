@@ -90,15 +90,4 @@ automatically within seconds.
 - Posts one summary comment per PR, not inline line-by-line review comments.
   Inline comments require calculating diff "positions" (not line numbers) via
   GitHub's Review API — a solid v2 feature if you want to add it.
-- Not compiled in the environment it was written in (no Maven Central access
-  there) — run `mvn clean install` first and fix forward if anything doesn't
-  compile.
 
-## Selling it
-
-- Position: "self-hosted AI PR reviewer, your own AI key, reviews every PR
-  automatically" — appeals directly to solo devs and small teams who find
-  SonarQube/enterprise tools overkill and expensive.
-- Buyers of this are disproportionately backend/Java developers — being
-  visibly Java/Spring Boot source (not a black-box SaaS) is a selling point
-  here, not a limitation.
